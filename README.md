@@ -195,3 +195,4 @@ mvn verify sonar:sonar \
   -Dsonar.projectKey=TU_PROJECT_KEY \
   -Dsonar.organization=TU_ORGANIZATION
 ```
+
