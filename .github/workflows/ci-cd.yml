@@ -119,32 +119,9 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Diagnosticar conexion SonarCloud
-        run: |
-          echo "=== Token valido? ==="
-          curl -s -u "$SONAR_TOKEN:" "https://sonarcloud.io/api/authentication/validate" | jq .
-
-          echo "=== Proyecto visible para el scanner? ==="
-          curl -s -u "$SONAR_TOKEN:" \
-            "https://sonarcloud.io/api/projects/search?projects=$SONAR_PROJECT_KEY&organization=$SONAR_ORGANIZATION" \
-            | jq '{total: .paging.total, proyectos: [.components[]?.key], errors: .errors}'
-
-          echo "=== Tipo de token (user tokens del token actual) ==="
-          curl -s -u "$SONAR_TOKEN:" \
-            "https://sonarcloud.io/api/user_tokens/search" \
-            | jq '{tokens: [.userTokens[]? | {nombre: .name, tipo: .type, proyecto: .projectKey}], errors: .errors}'
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
-          SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
-
       - name: Build, test y analizar con SonarCloud
         continue-on-error: true
-        run: >
-          mvn verify sonar:sonar -B
-          -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
-          -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
-          -Dsonar.qualitygate.wait=true
+        run: mvn verify sonar:sonar -B -Dsonar.qualitygate.wait=true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
