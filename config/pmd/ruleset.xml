@@ -11,21 +11,19 @@
     </description>
 
     <rule ref="category/java/bestpractices.xml">
-        <!-- Lombok genera constructores/getters — no requerir siempre constructor explícito -->
         <exclude name="GuardLogStatement"/>
         <!-- JUnit: no limitar cantidad de asserts por test -->
         <exclude name="JUnitTestContainsTooManyAsserts"/>
         <!-- JUnit: no requerir mensaje en cada assertion -->
         <exclude name="JUnitAssertionsShouldIncludeMessage"/>
-        <!-- Permite usar for-each con índice en lugar de iterator -->
+        <!-- Tests de contexto de Spring Boot son válidos sin asserts —
+             que el contexto cargue sin excepción ya es la verificación -->
+        <exclude name="JUnitTestsShouldIncludeAssert"/>
         <exclude name="UseCollectionIsEmpty"/>
     </rule>
 
     <!-- Patrones que probablemente producen bugs. -->
-    <rule ref="category/java/errorprone.xml">
-        <!-- JPA entities y DTOs de Lombok no necesitan serialVersionUID -->
-        <exclude name="BeanMembersShouldSerialize"/>
-    </rule>
+    <rule ref="category/java/errorprone.xml"/>
 
     <!-- Código que puede degradar la performance. -->
     <rule ref="category/java/performance.xml"/>
@@ -72,8 +70,6 @@
         <exclude name="CouplingBetweenObjects"/>
         <!-- Las entidades JPA y DTOs SON data classes por diseño -->
         <exclude name="DataClass"/>
-        <!-- Excepciones pueden tener constructores simples -->
-        <exclude name="MissingStaticMethodInNonInstantiatableClass"/>
     </rule>
 
 </ruleset>

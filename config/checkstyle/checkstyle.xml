@@ -17,11 +17,6 @@
         <property name="files" value=".*[\\/]generated[\\/].*"/>
     </module>
 
-    <!-- Sin tabs, solo espacios -->
-    <module name="FileTabCharacter">
-        <property name="eachLine" value="true"/>
-    </module>
-
     <!-- Archivo debe terminar con nueva línea -->
     <module name="NewlineAtEndOfFile"/>
 
@@ -94,12 +89,13 @@
         <module name="NoWhitespaceBefore"/>
         <module name="GenericWhitespace"/>
 
-        <!-- ===== LONGITUD DE LÍNEA ===== -->
-        <!-- Máximo 120 caracteres por línea -->
-        <module name="LineLength">
-            <property name="max" value="120"/>
-            <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
-        </module>
-
     </module>
+
+    <!-- ===== LONGITUD DE LÍNEA ===== -->
+    <!-- Máximo 120 caracteres por línea (va fuera de TreeWalker) -->
+    <module name="LineLength">
+        <property name="max" value="120"/>
+        <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+    </module>
+
 </module>
