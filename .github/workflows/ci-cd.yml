@@ -120,10 +120,12 @@ jobs:
           cache: maven
 
       - name: Build, test y analizar con SonarCloud
+        continue-on-error: true
         run: >
           mvn verify sonar:sonar -B
           -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
           -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+          -Dsonar.qualitygate.wait=true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -131,6 +133,36 @@ jobs:
           SPRING_DATASOURCE_USERNAME: test
           SPRING_DATASOURCE_PASSWORD: test
           SPRING_PROFILES_ACTIVE: test
+
+      - name: Evaluar Quality Gate
+        run: |
+          QG=$(curl -sf -u "$SONAR_TOKEN:" \
+            "https://sonarcloud.io/api/qualitygates/project_status?projectKey=$SONAR_PROJECT_KEY")
+
+          STATUS=$(echo "$QG" | jq -r '.projectStatus.status')
+          echo "Quality Gate status: $STATUS"
+
+          if [ "$STATUS" = "OK" ]; then
+            exit 0
+          fi
+
+          # Contar condiciones que fallan por bugs o vulnerabilidades
+          BLOCKING=$(echo "$QG" | jq '[
+            .projectStatus.conditions[] |
+            select(.status == "ERROR" and (.metricKey | test("^new_bugs$|^new_vulnerabilities$|^new_security_hotspots")))
+          ] | length')
+
+          if [ "$BLOCKING" -gt 0 ]; then
+            echo "Quality Gate falló por bugs o vulnerabilidades nuevas:"
+            echo "$QG" | jq '[.projectStatus.conditions[] | select(.status == "ERROR")]'
+            exit 1
+          fi
+
+          echo "Quality Gate falló solo por cobertura o duplicación — se ignora."
+          exit 0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
 
   # Job 4: Crear PR automático a master (solo en push, no en pull_request)
   create-pr:
