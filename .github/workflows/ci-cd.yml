@@ -121,22 +121,27 @@ jobs:
 
       - name: Diagnosticar conexion SonarCloud
         run: |
-          echo "=== Verificando proyecto en SonarCloud ==="
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -u "$SONAR_TOKEN:" \
-            "https://sonarcloud.io/api/components/show?component=$SONAR_PROJECT_KEY")
-          echo "HTTP status del proyecto: $STATUS"
+          echo "=== Token valido? ==="
+          curl -s -u "$SONAR_TOKEN:" "https://sonarcloud.io/api/authentication/validate" | jq .
 
-          echo "=== Respuesta completa ==="
+          echo "=== Proyecto accesible con el token? ==="
           curl -s -u "$SONAR_TOKEN:" \
             "https://sonarcloud.io/api/components/show?component=$SONAR_PROJECT_KEY" \
-            | jq '{nombre: .component.name, clave: .component.key, error: .errors}'
+            | jq '{nombre: .component.name, organizacion: .component.organization, error: .errors}'
 
-          echo "=== Validando token ==="
+          echo "=== Organizacion valida? ==="
           curl -s -u "$SONAR_TOKEN:" \
-            "https://sonarcloud.io/api/authentication/validate" | jq .
+            "https://sonarcloud.io/api/organizations/show?organization=$SONAR_ORGANIZATION" \
+            | jq '{nombre: .organization.name, clave: .organization.key, error: .errors}'
+
+          echo "=== Permisos del token sobre el proyecto? ==="
+          curl -s -u "$SONAR_TOKEN:" \
+            "https://sonarcloud.io/api/permissions/users?projectKey=$SONAR_PROJECT_KEY" \
+            | jq '{total: .paging.total, error: .errors}' 2>/dev/null || echo "Sin acceso a permisos"
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
+          SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
 
       - name: Build, test y analizar con SonarCloud
         continue-on-error: true
