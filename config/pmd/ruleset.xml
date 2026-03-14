@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<ruleset name="Cooperativa Financiera Ruleset"
+    xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0
+        https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+    <description>
+        Reglas PMD para el proyecto Cooperativa Financiera PY.
+        Documentación: https://pmd.github.io/latest/pmd_rules_java.html
+    </description>
+
+    <rule ref="category/java/bestpractices.xml">
+        <!-- Lombok genera constructores/getters — no requerir siempre constructor explícito -->
+        <exclude name="GuardLogStatement"/>
+        <!-- JUnit: no limitar cantidad de asserts por test -->
+        <exclude name="JUnitTestContainsTooManyAsserts"/>
+        <!-- JUnit: no requerir mensaje en cada assertion -->
+        <exclude name="JUnitAssertionsShouldIncludeMessage"/>
+        <!-- Permite usar for-each con índice en lugar de iterator -->
+        <exclude name="UseCollectionIsEmpty"/>
+    </rule>
+
+    <!-- Patrones que probablemente producen bugs. -->
+    <rule ref="category/java/errorprone.xml">
+        <!-- JPA entities y DTOs de Lombok no necesitan serialVersionUID -->
+        <exclude name="BeanMembersShouldSerialize"/>
+    </rule>
+
+    <!-- Código que puede degradar la performance. -->
+    <rule ref="category/java/performance.xml"/>
+
+    <!-- Vulnerabilidades conocidas. -->
+    <rule ref="category/java/security.xml"/>
+
+    <!-- Convenciones de escritura. -->
+    <rule ref="category/java/codestyle.xml">
+        <!-- Permite múltiples returns en un método -->
+        <exclude name="OnlyOneReturn"/>
+        <!-- Lombok genera constructores — no requerir siempre uno explícito -->
+        <exclude name="AtLeastOneConstructor"/>
+        <!-- No limitar longitud de nombres de variables -->
+        <exclude name="LongVariable"/>
+        <exclude name="ShortVariable"/>
+        <exclude name="ShortMethodName"/>
+        <!-- No limitar cantidad de imports estáticos -->
+        <exclude name="TooManyStaticImports"/>
+        <!-- Lombok puede requerir declarar campos en cualquier lugar -->
+        <exclude name="FieldDeclarationsShouldBeAtStartOfClass"/>
+        <!-- No requerir final en variables locales -->
+        <exclude name="LocalVariableCouldBeFinal"/>
+        <!-- No requerir final en parámetros de métodos -->
+        <exclude name="MethodArgumentCouldBeFinal"/>
+        <!-- Permite usar nombre del paquete en imports en lugar de FQCN -->
+        <exclude name="UnnecessaryFullyQualifiedName"/>
+    </rule>
+
+    <!-- Principios de diseño de software. -->
+    <rule ref="category/java/design.xml">
+        <!-- Law of Demeter es demasiado estricta para Spring Boot con beans -->
+        <exclude name="LawOfDemeter"/>
+        <!-- No restringir acoplamiento entre paquetes -->
+        <exclude name="LoosePackageCoupling"/>
+        <!-- Spring @Component, @Service, etc. no son utility classes -->
+        <exclude name="UseUtilityClass"/>
+        <!-- Los controllers/services de Spring pueden tener muchos métodos -->
+        <exclude name="TooManyMethods"/>
+        <!-- Las entidades JPA pueden tener muchos campos -->
+        <exclude name="TooManyFields"/>
+        <exclude name="ExcessivePublicCount"/>
+        <!-- No limitar acoplamiento entre objetos (Spring DI lo maneja) -->
+        <exclude name="CouplingBetweenObjects"/>
+        <!-- Las entidades JPA y DTOs SON data classes por diseño -->
+        <exclude name="DataClass"/>
+        <!-- Excepciones pueden tener constructores simples -->
+        <exclude name="MissingStaticMethodInNonInstantiatableClass"/>
+    </rule>
+
+</ruleset>

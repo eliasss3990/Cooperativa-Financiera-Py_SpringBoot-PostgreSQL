@@ -1,0 +1,105 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+  Configuración de Checkstyle para el proyecto.
+  Documentación: https://checkstyle.sourceforge.io/checks.html
+-->
+<module name="Checker">
+    <property name="severity" value="error"/>
+    <property name="fileExtensions" value="java"/>
+
+    <!-- Ignorar código generado por Lombok u otras herramientas -->
+    <module name="SuppressionSingleFilter">
+        <property name="checks" value=".*"/>
+        <property name="files" value=".*[\\/]generated[\\/].*"/>
+    </module>
+
+    <!-- Sin tabs, solo espacios -->
+    <module name="FileTabCharacter">
+        <property name="eachLine" value="true"/>
+    </module>
+
+    <!-- Archivo debe terminar con nueva línea -->
+    <module name="NewlineAtEndOfFile"/>
+
+    <module name="TreeWalker">
+
+        <!-- ===== IMPORTS ===== -->
+        <!-- No usar imports con wildcard (ej: import java.util.*) -->
+        <module name="AvoidStarImport"/>
+        <!-- No dejar imports sin usar -->
+        <module name="UnusedImports"/>
+        <!-- No importar la misma clase dos veces -->
+        <module name="RedundantImport"/>
+
+        <!-- ===== NOMENCLATURA ===== -->
+        <!-- Clases: PascalCase -->
+        <module name="TypeName"/>
+        <!-- Métodos: camelCase -->
+        <module name="MethodName"/>
+        <!-- Parámetros: camelCase -->
+        <module name="ParameterName"/>
+        <!-- Variables locales: camelCase -->
+        <module name="LocalVariableName"/>
+        <!-- Atributos de instancia: camelCase -->
+        <module name="MemberName"/>
+        <!-- Constantes: UPPER_SNAKE_CASE -->
+        <module name="ConstantName"/>
+        <!-- Paquetes: minúsculas con puntos -->
+        <module name="PackageName">
+            <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>
+        </module>
+
+        <!-- ===== LLAVES Y BLOQUES ===== -->
+        <!-- Siempre usar llaves en if/for/while/do -->
+        <module name="NeedBraces"/>
+        <!-- Llave de apertura al final de la línea -->
+        <module name="LeftCurly"/>
+        <!-- Llave de cierre en su propia línea -->
+        <module name="RightCurly"/>
+        <!-- No dejar bloques catch/finally vacíos sin comentario -->
+        <module name="EmptyBlock">
+            <property name="option" value="text"/>
+        </module>
+
+        <!-- ===== MODIFICADORES ===== -->
+        <!-- Orden correcto: public > protected > private > static > final > ... -->
+        <module name="ModifierOrder"/>
+        <!-- No poner modificadores redundantes (ej: public en métodos de interfaz) -->
+        <module name="RedundantModifier"/>
+
+        <!-- ===== CODIFICACIÓN ===== -->
+        <!-- No dejar sentencias vacías (punto y coma suelto) -->
+        <module name="EmptyStatement"/>
+        <!-- Si se sobreescribe equals(), también sobreescribir hashCode() -->
+        <module name="EqualsHashCode"/>
+        <!-- Simplificar expresiones booleanas redundantes -->
+        <module name="SimplifyBooleanExpression"/>
+        <!-- Simplificar returns booleanos redundantes -->
+        <module name="SimplifyBooleanReturn"/>
+        <!-- Comparar Strings con .equals(), no con == -->
+        <module name="StringLiteralEquality"/>
+        <!-- No usar System.out.println() — usar el logger -->
+        <module name="Regexp">
+            <property name="format" value="System\.(out|err)\.print"/>
+            <property name="illegalPattern" value="true"/>
+            <property name="message" value="No usar System.out/err. Usar el logger (SLF4J)."/>
+        </module>
+
+        <!-- ===== ESPACIADO ===== -->
+        <module name="WhitespaceAfter"/>
+        <module name="NoWhitespaceBefore"/>
+        <module name="GenericWhitespace"/>
+
+        <!-- ===== LONGITUD DE LÍNEA ===== -->
+        <!-- Máximo 120 caracteres por línea -->
+        <module name="LineLength">
+            <property name="max" value="120"/>
+            <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+        </module>
+
+    </module>
+</module>
