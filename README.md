@@ -178,6 +178,29 @@ Los resultados del análisis aparecen directamente en la PR de GitHub como un co
 
 ---
 
+## Scripts
+
+Scripts de utilidad en `scripts/`. Cada uno tiene documentación interna en el archivo, o corré `bash scripts/<nombre>.sh --help` para verla.
+
+| Script              | Descripción                                                                                                                                                                         |
+|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `reset-dev.sh`      | Reseteo completo del entorno dev: baja contenedores, elimina volúmenes, reconstruye la imagen y vuelve a levantar todo. Flyway corre automáticamente al reiniciar.                  |
+| `db-snapshot.sh`    | Guarda y restaura snapshots de la DB dev como archivos SQL con timestamp. Útil antes de aplicar migraciones destructivas o para compartir un estado de datos entre desarrolladores. |
+| `validate-local.sh` | Corre los mismos checks que el CI (compile → Checkstyle → PMD → tests) antes de hacer push. Si pasa acá, pasa en GitHub Actions.                                                    |
+
+```bash
+# Resetear entorno dev desde cero
+bash scripts/reset-dev.sh
+
+# Guardar estado de la DB antes de una migración riesgosa
+bash scripts/db-snapshot.sh save "antes-migracion-v2"
+
+# Verificar que todo pasa antes de hacer push
+bash scripts/validate-local.sh
+```
+
+---
+
 ## Comandos útiles
 
 ```bash
