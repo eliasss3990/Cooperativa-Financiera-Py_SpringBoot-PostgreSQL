@@ -163,10 +163,17 @@ jobs:
           ### Info
           - Rama: \`$BRANCH\`
           - Commit: \`$SHA\`" \
-          || echo "::notice::La PR ya existe para la rama $BRANCH, no se crea una nueva."
+          || echo "::notice::La PR ya existe para la rama $BRANCH."
 
       - name: Habilitar auto-merge
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: ${{ github.ref_name }}
-        run: gh pr merge --auto --merge "$BRANCH"
+        run: |
+          PR_NUMBER=$(gh pr list --head "$BRANCH" --base master --json number --jq '.[0].number')
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr merge "$PR_NUMBER" --auto --merge
+            echo "Auto-merge habilitado en PR #$PR_NUMBER"
+          else
+            echo "::notice::No hay PR abierta para la rama $BRANCH, se omite auto-merge."
+          fi
