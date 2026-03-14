@@ -37,3 +37,4 @@ application.dev.yml
 .env
 .env.*
 !.env.example
+/docker-compose.local.yml
