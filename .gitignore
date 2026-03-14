@@ -32,8 +32,8 @@ build/
 .vscode/
 
 # local
-application-local.yml
-application-dev.yml
+application.local.yml
+application.dev.yml
 .env
 .env.*
 !.env.example
