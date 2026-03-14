@@ -138,17 +138,27 @@ jobs:
         run: |
           ISSUES=$(curl -sf -u "$SONAR_TOKEN:" \
             "https://sonarcloud.io/api/issues/search?projectKeys=$SONAR_PROJECT_KEY&types=BUG,VULNERABILITY&resolved=false")
+          ISSUE_COUNT=$(echo "$ISSUES" | jq '.total')
 
-          COUNT=$(echo "$ISSUES" | jq '.total')
-          echo "Bugs y vulnerabilidades encontrados: $COUNT"
+          HOTSPOTS=$(curl -sf -u "$SONAR_TOKEN:" \
+            "https://sonarcloud.io/api/hotspots/search?projectKey=$SONAR_PROJECT_KEY&status=TO_REVIEW")
+          HOTSPOT_COUNT=$(echo "$HOTSPOTS" | jq '.paging.total')
 
-          if [ "$COUNT" -gt 0 ]; then
-            echo "El análisis encontró bugs o vulnerabilidades — pipeline bloqueado:"
+          echo "Bugs/vulnerabilidades: $ISSUE_COUNT — Hotspots sin revisar: $HOTSPOT_COUNT"
+
+          if [ "$ISSUE_COUNT" -gt 0 ]; then
+            echo "Pipeline bloqueado por bugs o vulnerabilidades:"
             echo "$ISSUES" | jq '[.issues[] | {tipo: .type, mensaje: .message, archivo: .component, regla: .rule}]'
             exit 1
           fi
 
-          echo "Sin bugs ni vulnerabilidades — pipeline OK."
+          if [ "$HOTSPOT_COUNT" -gt 0 ]; then
+            echo "Pipeline bloqueado por security hotspots sin revisar:"
+            echo "$HOTSPOTS" | jq '[.hotspots[] | {mensaje: .message, archivo: .component, regla: .ruleKey}]'
+            exit 1
+          fi
+
+          echo "Sin bugs, vulnerabilidades ni hotspots — pipeline OK."
           exit 0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
