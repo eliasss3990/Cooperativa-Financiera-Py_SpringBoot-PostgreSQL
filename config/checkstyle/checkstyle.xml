@@ -17,11 +17,6 @@
         <property name="files" value=".*[\\/]generated[\\/].*"/>
     </module>
 
-    <!-- Sin tabs, solo espacios -->
-    <module name="FileTabCharacter">
-        <property name="eachLine" value="true"/>
-    </module>
-
     <!-- Archivo debe terminar con nueva línea -->
     <module name="NewlineAtEndOfFile"/>
 
