@@ -1,17 +1,16 @@
 package developers;
 
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+
 public class BadService {
 
-    // SonarCloud java:S2068 — credencial hardcodeada (security hotspot)
-    private static final String DB_PASSWORD = "supersecret123";
-
-    // SonarCloud java:S1764 — subexpresiones idénticas en operador lógico (bug)
-    public boolean isValid(boolean condition) {
-        return condition && condition;
-    }
-
-    public String getPassword() {
-        return DB_PASSWORD;
+    // SonarCloud java:S2077 — SQL injection por concatenación de string (vulnerabilidad)
+    public void getUser(Connection conn, String username) throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute("SELECT * FROM users WHERE name = '" + username + "'");
+        }
     }
 
 }
