@@ -1,0 +1,23 @@
+# PostgreSQL para desarrollo (sin dockerizar el backend)
+services:
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-coop}-db-local
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-coop-db}
+    ports:
+      - "${POSTGRES_PORT:-5333}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-coop-db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_data:

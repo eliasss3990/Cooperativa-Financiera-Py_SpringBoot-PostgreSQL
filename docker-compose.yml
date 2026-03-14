@@ -1,0 +1,60 @@
+services:
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-coop}-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-coop-db}
+    ports:
+      - "${POSTGRES_PORT:-5333}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-coop-db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - coop-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        JAVA_VERSION: ${JAVA_VERSION:-17}
+    container_name: ${COMPOSE_PROJECT_NAME:-coop}-backend
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/${POSTGRES_DB:-coop-db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-default}
+      JAVA_OPTS: >-
+        -XX:MaxRAMPercentage=${JVM_MAX_RAM_PERCENTAGE:-75.0}
+    ports:
+      - "${APP_PORT:-8800}:8080"
+    volumes:
+      - app_data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    networks:
+      - coop-network
+
+volumes:
+  postgres_data:
+  app_data:
+
+networks:
+  coop-network:
+    driver: bridge
