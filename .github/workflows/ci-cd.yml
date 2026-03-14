@@ -119,6 +119,25 @@ jobs:
           distribution: temurin
           cache: maven
 
+      - name: Diagnosticar conexion SonarCloud
+        run: |
+          echo "=== Verificando proyecto en SonarCloud ==="
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -u "$SONAR_TOKEN:" \
+            "https://sonarcloud.io/api/components/show?component=$SONAR_PROJECT_KEY")
+          echo "HTTP status del proyecto: $STATUS"
+
+          echo "=== Respuesta completa ==="
+          curl -s -u "$SONAR_TOKEN:" \
+            "https://sonarcloud.io/api/components/show?component=$SONAR_PROJECT_KEY" \
+            | jq '{nombre: .component.name, clave: .component.key, error: .errors}'
+
+          echo "=== Validando token ==="
+          curl -s -u "$SONAR_TOKEN:" \
+            "https://sonarcloud.io/api/authentication/validate" | jq .
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
+
       - name: Build, test y analizar con SonarCloud
         continue-on-error: true
         run: >
