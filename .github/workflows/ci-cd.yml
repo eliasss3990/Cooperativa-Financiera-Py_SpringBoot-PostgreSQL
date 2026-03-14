@@ -134,31 +134,21 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: test
           SPRING_PROFILES_ACTIVE: test
 
-      - name: Evaluar Quality Gate
+      - name: Evaluar bugs y vulnerabilidades en SonarCloud
         run: |
-          QG=$(curl -sf -u "$SONAR_TOKEN:" \
-            "https://sonarcloud.io/api/qualitygates/project_status?projectKey=$SONAR_PROJECT_KEY")
+          ISSUES=$(curl -sf -u "$SONAR_TOKEN:" \
+            "https://sonarcloud.io/api/issues/search?projectKeys=$SONAR_PROJECT_KEY&types=BUG,VULNERABILITY&resolved=false")
 
-          STATUS=$(echo "$QG" | jq -r '.projectStatus.status')
-          echo "Quality Gate status: $STATUS"
+          COUNT=$(echo "$ISSUES" | jq '.total')
+          echo "Bugs y vulnerabilidades encontrados: $COUNT"
 
-          if [ "$STATUS" = "OK" ]; then
-            exit 0
-          fi
-
-          # Contar condiciones que fallan por bugs o vulnerabilidades
-          BLOCKING=$(echo "$QG" | jq '[
-            .projectStatus.conditions[] |
-            select(.status == "ERROR" and (.metricKey | test("^new_bugs$|^new_vulnerabilities$|^new_security_hotspots")))
-          ] | length')
-
-          if [ "$BLOCKING" -gt 0 ]; then
-            echo "Quality Gate falló por bugs o vulnerabilidades nuevas:"
-            echo "$QG" | jq '[.projectStatus.conditions[] | select(.status == "ERROR")]'
+          if [ "$COUNT" -gt 0 ]; then
+            echo "El análisis encontró bugs o vulnerabilidades — pipeline bloqueado:"
+            echo "$ISSUES" | jq '[.issues[] | {tipo: .type, mensaje: .message, archivo: .component, regla: .rule}]'
             exit 1
           fi
 
-          echo "Quality Gate falló solo por cobertura o duplicación — se ignora."
+          echo "Sin bugs ni vulnerabilidades — pipeline OK."
           exit 0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
