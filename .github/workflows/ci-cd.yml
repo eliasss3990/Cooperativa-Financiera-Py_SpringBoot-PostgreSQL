@@ -124,20 +124,15 @@ jobs:
           echo "=== Token valido? ==="
           curl -s -u "$SONAR_TOKEN:" "https://sonarcloud.io/api/authentication/validate" | jq .
 
-          echo "=== Proyecto accesible con el token? ==="
+          echo "=== Proyecto visible para el scanner? ==="
           curl -s -u "$SONAR_TOKEN:" \
-            "https://sonarcloud.io/api/components/show?component=$SONAR_PROJECT_KEY" \
-            | jq '{nombre: .component.name, organizacion: .component.organization, error: .errors}'
+            "https://sonarcloud.io/api/projects/search?projects=$SONAR_PROJECT_KEY&organization=$SONAR_ORGANIZATION" \
+            | jq '{total: .paging.total, proyectos: [.components[]?.key], errors: .errors}'
 
-          echo "=== Organizacion valida? ==="
+          echo "=== Tipo de token (user tokens del token actual) ==="
           curl -s -u "$SONAR_TOKEN:" \
-            "https://sonarcloud.io/api/organizations/show?organization=$SONAR_ORGANIZATION" \
-            | jq '{nombre: .organization.name, clave: .organization.key, error: .errors}'
-
-          echo "=== Permisos del token sobre el proyecto? ==="
-          curl -s -u "$SONAR_TOKEN:" \
-            "https://sonarcloud.io/api/permissions/users?projectKey=$SONAR_PROJECT_KEY" \
-            | jq '{total: .paging.total, error: .errors}' 2>/dev/null || echo "Sin acceso a permisos"
+            "https://sonarcloud.io/api/user_tokens/search" \
+            | jq '{tokens: [.userTokens[]? | {nombre: .name, tipo: .type, proyecto: .projectKey}], errors: .errors}'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
