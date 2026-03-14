@@ -33,8 +33,8 @@ build/
 
 # local
 application.local.yml
-application.dev.yml
 .env
 .env.*
 !.env.example
+!.env.dev.example
 /docker-compose.local.yml
