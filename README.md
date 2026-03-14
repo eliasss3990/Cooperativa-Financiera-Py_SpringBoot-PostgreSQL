@@ -178,6 +178,39 @@ Los resultados del análisis aparecen directamente en la PR de GitHub como un co
 
 ---
 
+## Makefile
+
+Atajos para los comandos más usados. Corré `make` sin argumentos para ver todos.
+
+```bash
+# Dev
+make up              # levantar DB + backend
+make up-build        # levantar reconstruyendo la imagen
+make down            # bajar contenedores
+make down-v          # bajar y eliminar volúmenes
+make restart         # reiniciar solo el backend
+make logs            # logs del backend en tiempo real
+make logs-all        # logs de todos los servicios
+make shell           # shell dentro del contenedor del backend
+
+# Base de datos
+make db-connect      # abrir psql en el contenedor de la DB
+make snapshot        # guardar snapshot de la DB
+make restore         # restaurar snapshot de la DB
+
+# Calidad
+make validate        # compile + Checkstyle + PMD + tests
+make validate-fast   # compile + Checkstyle + PMD (sin tests)
+make clean           # eliminar target/
+
+# Entorno
+make reset           # resetear entorno dev desde cero (rebuild incluido)
+make reset-db        # resetear solo la DB
+make reset-fast      # resetear sin rebuild de imagen
+```
+
+---
+
 ## Scripts
 
 Scripts de utilidad en `scripts/`. Cada uno tiene documentación interna en el archivo, o corré `bash scripts/<nombre>.sh --help` para verla.
