@@ -136,7 +136,7 @@ jobs:
     needs: [test, code-quality, sonarcloud]
 
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
 
     steps:
@@ -164,3 +164,9 @@ jobs:
           - Rama: \`$BRANCH\`
           - Commit: \`$SHA\`" \
           || echo "::notice::La PR ya existe para la rama $BRANCH, no se crea una nueva."
+
+      - name: Habilitar auto-merge
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        run: gh pr merge --auto --merge "$BRANCH"
