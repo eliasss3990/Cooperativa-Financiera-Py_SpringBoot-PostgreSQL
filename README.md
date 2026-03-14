@@ -1,6 +1,6 @@
 # Cooperativa Financiera PY — Backend
 
-Spring Boot 4 + PostgreSQL 16 + Maven
+Spring Boot 4 + PostgreSQL 16
 
 ---
 
