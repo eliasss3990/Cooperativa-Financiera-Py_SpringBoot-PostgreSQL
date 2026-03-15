@@ -45,7 +45,10 @@ jobs:
           cache: maven
 
       - name: Run tests
-        run: mvn test -B
+        run: |
+          echo "--- Running tests against PostgreSQL at localhost:5432/coop-test ---"
+          mvn test -B
+          echo "--- Tests passed ---"
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/coop-test
           SPRING_DATASOURCE_USERNAME: test
@@ -77,13 +80,22 @@ jobs:
           cache: maven
 
       - name: Compilar
-        run: mvn compile -B
+        run: |
+          echo "--- Compiling project ---"
+          mvn compile -B
+          echo "--- Compilation successful ---"
 
       - name: Checkstyle
-        run: mvn checkstyle:check -B
+        run: |
+          echo "--- Running Checkstyle (style conventions) ---"
+          mvn checkstyle:check -B
+          echo "--- Checkstyle passed ---"
 
       - name: PMD
-        run: mvn pmd:check -B
+        run: |
+          echo "--- Running PMD (static analysis) ---"
+          mvn pmd:check -B
+          echo "--- PMD passed ---"
 
   # Job 3: SonarCloud — corre solo en PR (plan free soporta PR analysis, no branch analysis)
   sonarcloud:
@@ -122,11 +134,14 @@ jobs:
 
       - name: Build, test y analizar con SonarCloud
         continue-on-error: true
-        run: >
-          mvn verify sonar:sonar -B
-          -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
-          -Dsonar.pullrequest.branch=${{ github.head_ref }}
-          -Dsonar.pullrequest.base=${{ github.base_ref }}
+        run: |
+          echo "--- Running Maven verify + SonarCloud analysis on PR #${{ github.event.pull_request.number }} ---"
+          echo "    Branch: ${{ github.head_ref }} -> ${{ github.base_ref }}"
+          mvn verify sonar:sonar -B \
+            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }} \
+            -Dsonar.pullrequest.branch=${{ github.head_ref }} \
+            -Dsonar.pullrequest.base=${{ github.base_ref }}
+          echo "--- SonarCloud analysis submitted ---"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -138,6 +153,7 @@ jobs:
       - name: Evaluar bugs y vulnerabilidades en SonarCloud
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
+          echo "--- Querying SonarCloud results for PR #$PR_NUMBER ---"
 
           ISSUES=$(curl -sf -u "$SONAR_TOKEN:" -G \
             "https://sonarcloud.io/api/issues/search" \
@@ -154,21 +170,21 @@ jobs:
             --data-urlencode "pullRequest=$PR_NUMBER")
           HOTSPOT_COUNT=$(echo "$HOTSPOTS" | jq '.paging.total')
 
-          echo "Bugs/vulnerabilidades: $ISSUE_COUNT — Hotspots sin revisar: $HOTSPOT_COUNT"
+          echo "Results: bugs/vulnerabilities=$ISSUE_COUNT  unreviewed-hotspots=$HOTSPOT_COUNT"
 
           if [ "$ISSUE_COUNT" -gt 0 ]; then
-            echo "Pipeline bloqueado por bugs o vulnerabilidades:"
-            echo "$ISSUES" | jq '[.issues[] | {tipo: .type, mensaje: .message, archivo: .component, regla: .rule}]'
+            echo "BLOCKED: $ISSUE_COUNT bug(s)/vulnerability(ies) found — pipeline will not proceed"
+            echo "$ISSUES" | jq '[.issues[] | {type: .type, message: .message, file: .component, rule: .rule}]'
             exit 1
           fi
 
           if [ "$HOTSPOT_COUNT" -gt 0 ]; then
-            echo "Pipeline bloqueado por security hotspots sin revisar:"
-            echo "$HOTSPOTS" | jq '[.hotspots[] | {mensaje: .message, archivo: .component, regla: .ruleKey}]'
+            echo "BLOCKED: $HOTSPOT_COUNT unreviewed security hotspot(s) found — pipeline will not proceed"
+            echo "$HOTSPOTS" | jq '[.hotspots[] | {message: .message, file: .component, rule: .ruleKey}]'
             exit 1
           fi
 
-          echo "Sin bugs, vulnerabilidades ni hotspots — pipeline OK."
+          echo "--- SonarCloud check passed: no bugs, vulnerabilities, or unreviewed hotspots ---"
           exit 0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -179,8 +195,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
+          echo "--- Enabling auto-merge on PR #$PR_NUMBER ---"
           gh pr merge "$PR_NUMBER" --auto --merge
-          echo "Auto-merge habilitado en PR #$PR_NUMBER"
+          echo "--- Auto-merge enabled: PR #$PR_NUMBER will merge when all checks pass ---"
 
   # Job 4: Crear PR automático a master (solo en push, usa GH_PAT para disparar pull_request event)
   create-pr:
@@ -199,18 +216,20 @@ jobs:
           BRANCH: ${{ github.ref_name }}
           SHA: ${{ github.sha }}
         run: |
+          echo "--- Creating PR: ${{ github.ref_name }} -> master ---"
           gh pr create \
             --base master \
             --head "$BRANCH" \
-            --title "feat: $BRANCH → master" \
-            --body "## PR Automático
+            --title "feat: $BRANCH -> master" \
+            --body "## PR Automatico
 
           ### Estado del CI
           - Tests: Pasaron
           - PMD & Checkstyle: Sin violaciones
-          - SonarCloud: Pendiente (se evalúa en esta PR)
+          - SonarCloud: Pendiente (se evalua en esta PR)
 
           ### Info
           - Rama: \`$BRANCH\`
           - Commit: \`$SHA\`" \
-          || echo "::notice::La PR ya existe para la rama $BRANCH."
+          && echo "--- PR created successfully ---" \
+          || echo "::notice::PR already exists for branch $BRANCH — skipping creation."
