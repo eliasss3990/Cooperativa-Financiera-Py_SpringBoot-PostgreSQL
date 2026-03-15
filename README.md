@@ -156,11 +156,10 @@ Para que el Quality Gate pase, el código que se agrega en cada PR debe cumplir:
 - **No introducir bugs ni vulnerabilidades** nuevas. SonarCloud analiza el código y detecta patrones
   problemáticos, como nulls sin verificar, recursos no cerrados, comparaciones incorrectas, etc.
 - **Mantener o mejorar la cobertura de tests**. Por defecto SonarCloud pide al menos un 80% de
-  cobertura sobre el código nuevo. Si se agrega lógica sin tests, el análisis puede fallar.
+  cobertura sobre el código nuevo. Si se agrega lógica sin tests, el análisis puede fallar (en este proyecto
+  no se requiere porcentaje minimo).
 - **No introducir code smells graves**. Métodos demasiado largos, clases con demasiadas
   responsabilidades, variables sin usar, complejidad ciclomática alta, etc.
-
-La forma más simple de no tener sorpresas: **escribir tests para toda la lógica de negocio que se agregue**.
 
 ### Ver los resultados
 
@@ -198,11 +197,6 @@ make db-connect      # abrir psql en el contenedor de la DB
 make snapshot        # guardar snapshot de la DB
 make restore         # restaurar snapshot de la DB
 
-# Calidad
-make validate        # compile + Checkstyle + PMD + tests
-make validate-fast   # compile + Checkstyle + PMD (sin tests)
-make clean           # eliminar target/
-
 # Entorno
 make reset           # resetear entorno dev desde cero (rebuild incluido)
 make reset-db        # resetear solo la DB
@@ -219,7 +213,6 @@ Scripts de utilidad en `scripts/`. Cada uno tiene documentación interna en el a
 |---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `reset-dev.sh`      | Reseteo completo del entorno dev: baja contenedores, elimina volúmenes, reconstruye la imagen y vuelve a levantar todo. Flyway corre automáticamente al reiniciar.                  |
 | `db-snapshot.sh`    | Guarda y restaura snapshots de la DB dev como archivos SQL con timestamp. Útil antes de aplicar migraciones destructivas o para compartir un estado de datos entre desarrolladores. |
-| `validate-local.sh` | Corre los mismos checks que el CI (compile → Checkstyle → PMD → tests) antes de hacer push. Si pasa acá, pasa en GitHub Actions.                                                    |
 
 ```bash
 # Resetear entorno dev desde cero
@@ -227,9 +220,6 @@ bash scripts/reset-dev.sh
 
 # Guardar estado de la DB antes de una migración riesgosa
 bash scripts/db-snapshot.sh save "antes-migracion-v2"
-
-# Verificar que todo pasa antes de hacer push
-bash scripts/validate-local.sh
 ```
 
 ---
@@ -245,10 +235,5 @@ docker compose -f docker-compose.dev.yml down -v
 
 # Ejecutar tests localmente
 mvn test -DSPRING_PROFILES_ACTIVE=test
-
-# Análisis SonarCloud local (requiere SONAR_TOKEN en el entorno)
-mvn verify sonar:sonar \
-  -Dsonar.projectKey=TU_PROJECT_KEY \
-  -Dsonar.organization=TU_ORGANIZATION
 ```
 
