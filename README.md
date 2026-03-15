@@ -209,10 +209,11 @@ make reset-fast      # resetear sin rebuild de imagen
 
 Scripts de utilidad en `scripts/`. Cada uno tiene documentación interna en el archivo, o corré `bash scripts/<nombre>.sh --help` para verla.
 
-| Script              | Descripción                                                                                                                                                                         |
-|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `reset-dev.sh`      | Reseteo completo del entorno dev: baja contenedores, elimina volúmenes, reconstruye la imagen y vuelve a levantar todo. Flyway corre automáticamente al reiniciar.                  |
-| `db-snapshot.sh`    | Guarda y restaura snapshots de la DB dev como archivos SQL con timestamp. Útil antes de aplicar migraciones destructivas o para compartir un estado de datos entre desarrolladores. |
+| Script           | Descripción                                                                                                                                                                         |
+|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `reset-dev.sh`   | Reseteo completo del entorno dev: baja contenedores, elimina volúmenes, reconstruye la imagen y vuelve a levantar todo. Flyway corre automáticamente al reiniciar.                  |
+| `git-sync.sh`    | Automatiza el actualizar el repositorio local de Git todas las mañanas (o cualquier momento del dia).                                                                               |
+| `db-snapshot.sh` | Guarda y restaura snapshots de la DB dev como archivos SQL con timestamp. Útil antes de aplicar migraciones destructivas o para compartir un estado de datos entre desarrolladores. |
 
 ```bash
 # Resetear entorno dev desde cero
