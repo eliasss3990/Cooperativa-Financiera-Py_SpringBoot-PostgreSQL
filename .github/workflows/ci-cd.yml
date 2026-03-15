@@ -85,9 +85,10 @@ jobs:
       - name: PMD
         run: mvn pmd:check -B
 
-  # Job 3: SonarCloud
+  # Job 3: SonarCloud — corre solo en PR (plan free soporta PR analysis, no branch analysis)
   sonarcloud:
     name: SonarCloud Analysis
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     needs: [test, code-quality]
 
@@ -121,8 +122,11 @@ jobs:
 
       - name: Build, test y analizar con SonarCloud
         continue-on-error: true
-        run: mvn verify sonar:sonar -B -Dsonar.qualitygate.wait=true
-        # sonar.organization y sonar.projectKey vienen del pom.xml
+        run: >
+          mvn verify sonar:sonar -B
+          -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
+          -Dsonar.pullrequest.branch=${{ github.head_ref }}
+          -Dsonar.pullrequest.base=${{ github.base_ref }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -133,21 +137,21 @@ jobs:
 
       - name: Evaluar bugs y vulnerabilidades en SonarCloud
         run: |
-          BRANCH="${{ github.ref_name }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
 
           ISSUES=$(curl -sf -u "$SONAR_TOKEN:" -G \
             "https://sonarcloud.io/api/issues/search" \
             --data-urlencode "projectKeys=$SONAR_PROJECT_KEY" \
             --data-urlencode "types=BUG,VULNERABILITY" \
             --data-urlencode "resolved=false" \
-            --data-urlencode "branch=$BRANCH")
+            --data-urlencode "pullRequest=$PR_NUMBER")
           ISSUE_COUNT=$(echo "$ISSUES" | jq '.total')
 
           HOTSPOTS=$(curl -sf -u "$SONAR_TOKEN:" -G \
             "https://sonarcloud.io/api/hotspots/search" \
             --data-urlencode "projectKey=$SONAR_PROJECT_KEY" \
             --data-urlencode "status=TO_REVIEW" \
-            --data-urlencode "branch=$BRANCH")
+            --data-urlencode "pullRequest=$PR_NUMBER")
           HOTSPOT_COUNT=$(echo "$HOTSPOTS" | jq '.paging.total')
 
           echo "Bugs/vulnerabilidades: $ISSUE_COUNT — Hotspots sin revisar: $HOTSPOT_COUNT"
@@ -168,18 +172,22 @@ jobs:
           exit 0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
+          SONAR_PROJECT_KEY: eliasss3990_Cooperativa-Financiera-Py_SpringBoot-PostgreSQL
 
-  # Job 4: Crear PR automático a master (solo en push, no en pull_request)
+      - name: Habilitar auto-merge
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          gh pr merge "$PR_NUMBER" --auto --merge
+          echo "Auto-merge habilitado en PR #$PR_NUMBER"
+
+  # Job 4: Crear PR automático a master (solo en push, usa GH_PAT para disparar pull_request event)
   create-pr:
     name: Crear PR a master
     runs-on: ubuntu-latest
-    needs: [test, code-quality, sonarcloud]
+    needs: [test, code-quality]
     if: github.event_name == 'push'
-
-    permissions:
-      contents: write
-      pull-requests: write
 
     steps:
       - name: Checkout
@@ -187,7 +195,7 @@ jobs:
 
       - name: Crear PR a master
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
           BRANCH: ${{ github.ref_name }}
           SHA: ${{ github.sha }}
         run: |
@@ -200,22 +208,9 @@ jobs:
           ### Estado del CI
           - Tests: Pasaron
           - PMD & Checkstyle: Sin violaciones
-          - SonarCloud: Sin bugs ni vulnerabilidades
+          - SonarCloud: Pendiente (se evalúa en esta PR)
 
           ### Info
           - Rama: \`$BRANCH\`
           - Commit: \`$SHA\`" \
           || echo "::notice::La PR ya existe para la rama $BRANCH."
-
-      - name: Habilitar auto-merge
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: ${{ github.ref_name }}
-        run: |
-          PR_NUMBER=$(gh pr list --head "$BRANCH" --base master --json number --jq '.[0].number')
-          if [ -n "$PR_NUMBER" ]; then
-            gh pr merge "$PR_NUMBER" --auto --merge
-            echo "Auto-merge habilitado en PR #$PR_NUMBER"
-          else
-            echo "::notice::No hay PR abierta para la rama $BRANCH, se omite auto-merge."
-          fi
