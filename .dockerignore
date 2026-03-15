@@ -1,10 +1,37 @@
+# Build y dependencias
 target/
+*.jar
+*.war
+*.ear
+
+# Control de versiones
 .git/
 .gitignore
+
+# Entornos y credenciales
 .env
 .env.*
-*.md
+
+# Docker y despliegue
 docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# IDEs y Editores
 .idea/
 *.iml
 .vscode/
+
+# Documentación
+*.md
+
+# Carpetas locales
+logs/
+*.log
+snapshots/
+data/
+db-data/
+
+# Archivos temporales de SO
+.DS_Store
+Thumbs.db

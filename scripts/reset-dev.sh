@@ -46,17 +46,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
-# Si el script se interrumpe con el backend bajado, lo vuelve a levantar
-BACKEND_STOPPED_BY_US=false
-cleanup_on_exit() {
-  if $BACKEND_STOPPED_BY_US; then
-    echo ""
-    warn "Script interrumpido. Volviendo a levantar el backend..."
-    docker compose -f docker-compose.dev.yml --env-file .env.dev start backend 2>/dev/null || true
-  fi
-}
-trap cleanup_on_exit EXIT INT TERM
-
 BUILD=true
 ONLY_DB=false
 
@@ -104,13 +93,21 @@ fi
 set -a; source .env.dev; set +a
 
 COMPOSE_CMD=(docker compose -f docker-compose.dev.yml --env-file .env.dev)
-DB_CONTAINER="${COMPOSE_PROJECT_NAME:-coop-financiera-dev}-db"
-BACKEND_CONTAINER="${COMPOSE_PROJECT_NAME:-coop-financiera-dev}-backend"
 APP_PORT="${APP_PORT:-8801}"
 APP_DEBUG_PORT="${APP_DEBUG_PORT:-5005}"
 
+BACKEND_STOPPED_BY_US=false
+cleanup_on_exit() {
+  if $BACKEND_STOPPED_BY_US; then
+    echo ""
+    warn "Script interrumpido. Volviendo a levantar el backend..."
+    "${COMPOSE_CMD[@]}" start backend 2>/dev/null || true
+  fi
+}
+trap cleanup_on_exit EXIT INT TERM
+
 success "Docker corriendo"
-info "Proyecto : ${COMPOSE_PROJECT_NAME:-coop-financiera-dev}"
+info "Proyecto : ${COMPOSE_PROJECT_NAME:-coop-dev}"
 info "Puerto   : $APP_PORT"
 info "DB       : ${POSTGRES_DB:-coop-db-dev}"
 
@@ -126,20 +123,25 @@ echo ""
 read -rp "¿Continuar? (s/N): " CONFIRM
 [[ "$CONFIRM" =~ ^[sS]$ ]] || { info "Cancelado."; exit 0; }
 
-step "Bajando contenedores"
+step "Ejecutando limpieza"
 
 if $ONLY_DB; then
-  if docker ps --format '{{.Names}}' | grep -q "^${BACKEND_CONTAINER}$"; then
+  if [ -n "$("${COMPOSE_CMD[@]}" ps -q backend 2>/dev/null)" ]; then
     info "Bajando backend para liberar conexiones a la DB..."
     "${COMPOSE_CMD[@]}" stop backend 2>/dev/null || true
     BACKEND_STOPPED_BY_US=true
   fi
-  info "Bajando DB..."
-  "${COMPOSE_CMD[@]}" stop postgres-db 2>/dev/null || true
-  "${COMPOSE_CMD[@]}" rm -f postgres-db 2>/dev/null || true
-  docker volume rm "${COMPOSE_PROJECT_NAME:-coop-financiera-dev}_postgres_dev_data" 2>/dev/null \
-    && success "Volumen de DB eliminado" \
-    || info "El volumen no existía — nada que eliminar"
+
+  DB_CONTAINER=$("${COMPOSE_CMD[@]}" ps -q postgres-db)
+  info "Cerrando conexiones y recreando base de datos..."
+  docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$DB_CONTAINER" \
+    psql -U "$POSTGRES_USER" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$POSTGRES_DB' AND pid <> pg_backend_pid();" > /dev/null 2>&1 || true
+  docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$DB_CONTAINER" \
+    psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS \"$POSTGRES_DB\";" > /dev/null
+  docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$DB_CONTAINER" \
+    psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE \"$POSTGRES_DB\";" > /dev/null
+
+  success "Base de datos reseteada a estado de fábrica"
 else
   info "Bajando todos los contenedores y eliminando volúmenes..."
   "${COMPOSE_CMD[@]}" down -v --remove-orphans 2>/dev/null || true
@@ -156,22 +158,8 @@ fi
 step "Levantando entorno"
 
 if $ONLY_DB; then
-  info "Levantando DB..."
-  "${COMPOSE_CMD[@]}" up -d postgres-db
-
-  info "Esperando DB..."
-  RETRIES=30
-  until docker exec "$DB_CONTAINER" pg_isready -U "${POSTGRES_USER:-dev-user}" -d "${POSTGRES_DB:-coop-db-dev}" &>/dev/null; do
-    RETRIES=$((RETRIES - 1))
-    [ $RETRIES -le 0 ] && error "La DB no levantó después de 30 intentos. Revisá los logs:\n  docker compose -f docker-compose.dev.yml logs postgres-db"
-    printf "."
-    sleep 2
-  done
-  echo ""
-  success "DB lista"
-
   info "Levantando backend (Flyway va a reconstruir el schema)..."
-  "${COMPOSE_CMD[@]}" up -d backend
+  "${COMPOSE_CMD[@]}" start backend
   BACKEND_STOPPED_BY_US=false
 else
   info "Levantando DB y backend..."
@@ -181,11 +169,11 @@ fi
 step "Esperando que los servicios estén listos"
 
 if ! $ONLY_DB; then
-  info "Esperando DB..."
+  info "Esperando DB (Docker Healthcheck)..."
   RETRIES=30
-  until docker exec "$DB_CONTAINER" pg_isready -U "${POSTGRES_USER:-dev-user}" -d "${POSTGRES_DB:-coop-db-dev}" &>/dev/null; do
+  until [ "$("${COMPOSE_CMD[@]}" ps -q postgres-db | xargs docker inspect -f '{{.State.Health.Status}}' 2>/dev/null)" == "healthy" ]; do
     RETRIES=$((RETRIES - 1))
-    [ $RETRIES -le 0 ] && error "La DB no levantó después de 30 intentos. Revisá los logs:\n  docker compose -f docker-compose.dev.yml logs postgres-db"
+    [ $RETRIES -le 0 ] && error "La DB no levantó a tiempo. Revisá los logs:\n  docker compose -f docker-compose.dev.yml logs postgres-db"
     printf "."
     sleep 2
   done
@@ -193,35 +181,13 @@ if ! $ONLY_DB; then
   success "DB lista"
 fi
 
-info "Esperando backend (Flyway + Spring Boot)..."
-
-if command -v curl &>/dev/null; then
-  HTTP_TOOL="curl"
-elif command -v wget &>/dev/null; then
-  HTTP_TOOL="wget"
-else
-  HTTP_TOOL="none"
-  warn "curl y wget no encontrados — se esperará 45 segundos fijos para el backend."
-fi
-
-http_check() {
-  case "$HTTP_TOOL" in
-    curl) curl -sf "http://localhost:${APP_PORT}/actuator/health" &>/dev/null ;;
-    wget) wget -q --spider "http://localhost:${APP_PORT}/actuator/health" &>/dev/null ;;
-    none) sleep 45; return 0 ;;
-  esac
-}
-
+info "Esperando backend (Docker Healthcheck)..."
 RETRIES=40
-until http_check; do
+until [ "$("${COMPOSE_CMD[@]}" ps -q backend | xargs docker inspect -f '{{.State.Health.Status}}' 2>/dev/null)" == "healthy" ]; do
   RETRIES=$((RETRIES - 1))
   if [ $RETRIES -le 0 ]; then
     echo ""
-    warn "El backend tardó demasiado en levantar."
-    echo ""
-    echo -e "  Revisá los logs para ver qué pasó:"
-    echo -e "  ${CYAN}docker compose -f docker-compose.dev.yml logs --tail=50 backend${NC}"
-    exit 1
+    error "El backend no levantó correctamente. Revisá los logs:\n  docker compose -f docker-compose.dev.yml logs --tail=50 backend"
   fi
   printf "."
   sleep 3
