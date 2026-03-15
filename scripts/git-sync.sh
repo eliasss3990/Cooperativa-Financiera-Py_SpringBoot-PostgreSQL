@@ -120,4 +120,4 @@ if $CLEAN_BRANCHES; then
 fi
 
 echo ""
-echo -e "${GREEN}${BOLD}¡Todo listo! 🚀${NC}"
+echo -e "${GREEN}${BOLD}¡Todo listo!${NC}"
