@@ -70,10 +70,8 @@ fi
 
 set -a; source "$ENV_FILE"; set +a
 
-DB_CONTAINER="${COMPOSE_PROJECT_NAME:-coop-financiera-dev}-db"
-BACKEND_CONTAINER="${COMPOSE_PROJECT_NAME:-coop-financiera-dev}-backend"
-# Array para evitar problemas con espacios en valores de variables de entorno
 COMPOSE_CMD=(docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE")
+DB_CONTAINER=$("${COMPOSE_CMD[@]}" ps -q postgres-db 2>/dev/null || echo "")
 POSTGRES_USER="${POSTGRES_USER:-dev-user}"
 POSTGRES_DB="${POSTGRES_DB:-coop-db-dev}"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-dev-password}"
@@ -82,17 +80,18 @@ APP_PORT="${APP_PORT:-8801}"
 mkdir -p "$SNAPSHOTS_DIR"
 
 is_db_running() {
-  docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${DB_CONTAINER}$"
+  [ -n "$("${COMPOSE_CMD[@]}" ps -q postgres-db 2>/dev/null)" ]
 }
 
 is_backend_running() {
-  docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${BACKEND_CONTAINER}$"
+  [ -n "$("${COMPOSE_CMD[@]}" ps -q backend 2>/dev/null)" ]
 }
 
 require_db() {
   if ! is_db_running; then
     error "La DB no está corriendo.\n  Levantála con: docker compose -f $COMPOSE_FILE --env-file $ENV_FILE up -d postgres-db"
   fi
+  DB_CONTAINER=$("${COMPOSE_CMD[@]}" ps -q postgres-db)
 }
 
 run_psql() {
@@ -100,11 +99,17 @@ run_psql() {
     psql -U "$POSTGRES_USER" "$@"
 }
 
+get_snapshot_files() {
+  local -n arr=$1
+  arr=()
+  for f in "$SNAPSHOTS_DIR"/*.sql; do
+    [ -e "$f" ] && arr+=("$f")
+  done
+}
+
 list_snapshots() {
-  local -a files=()
-  while IFS= read -r f; do
-    files+=("$f")
-  done < <(find "$SNAPSHOTS_DIR" -maxdepth 1 -name "*.sql" | sort)
+  local -a files
+  get_snapshot_files files
 
   if [ ${#files[@]} -eq 0 ]; then
     return 1
@@ -123,10 +128,8 @@ list_snapshots() {
 }
 
 pick_snapshot() {
-  local -a files=()
-  while IFS= read -r f; do
-    files+=("$f")
-  done < <(find "$SNAPSHOTS_DIR" -maxdepth 1 -name "*.sql" | sort)
+  local -a files
+  get_snapshot_files files
 
   if [ ${#files[@]} -eq 0 ]; then
     error "No hay snapshots guardados. Creá uno con: bash scripts/db-snapshot.sh save"
@@ -167,8 +170,6 @@ cmd_save() {
   info "Archivo  : snapshots/$FILENAME"
   echo ""
 
-  # Escribe a un .tmp y solo lo renombra si el dump fue exitoso
-  # Evita dejar archivos SQL corruptos si pg_dump falla a mitad
   if docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$DB_CONTAINER" \
       pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists \
       > "$tmpfile"; then
@@ -222,7 +223,6 @@ cmd_restore() {
     backend_was_running=true
     info "Bajando backend para liberar conexiones..."
     "${COMPOSE_CMD[@]}" stop backend 2>/dev/null || true
-    # Si el script se interrumpe con el backend bajado, lo vuelve a levantar
     trap '"${COMPOSE_CMD[@]}" start backend 2>/dev/null || true' EXIT INT TERM
   fi
 
@@ -249,33 +249,13 @@ cmd_restore() {
     info "Volviendo a levantar el backend..."
     "${COMPOSE_CMD[@]}" start backend > /dev/null
 
-    info "Esperando que el backend esté listo..."
-
-    local http_tool
-    if command -v curl &>/dev/null; then
-      http_tool="curl"
-    elif command -v wget &>/dev/null; then
-      http_tool="wget"
-    else
-      http_tool="none"
-    fi
-
-    http_check() {
-      case "$http_tool" in
-        curl) curl -sf "http://localhost:${APP_PORT}/actuator/health" &>/dev/null ;;
-        wget) wget -q --spider "http://localhost:${APP_PORT}/actuator/health" &>/dev/null ;;
-        none) sleep 45; return 0 ;;
-      esac
-    }
-
+    info "Esperando que el backend reporte estado 'healthy'..."
     local retries=40
-    until http_check; do
+    until [ "$("${COMPOSE_CMD[@]}" ps -q backend | xargs docker inspect -f '{{.State.Health.Status}}' 2>/dev/null)" == "healthy" ]; do
       retries=$((retries - 1))
       if [ $retries -le 0 ]; then
         echo ""
-        warn "El backend tardó demasiado. Revisá los logs:"
-        echo -e "  ${CYAN}docker compose -f $COMPOSE_FILE logs --tail=50 backend${NC}"
-        exit 1
+        error "El backend no levantó correctamente. Revisá los logs:\n  docker compose -f $COMPOSE_FILE logs --tail=50 backend"
       fi
       printf "."
       sleep 3
@@ -307,10 +287,8 @@ cmd_list() {
 cmd_delete() {
   step "Eliminar snapshots"
 
-  local -a files=()
-  while IFS= read -r f; do
-    files+=("$f")
-  done < <(find "$SNAPSHOTS_DIR" -maxdepth 1 -name "*.sql" | sort)
+  local -a files
+  get_snapshot_files files
 
   if [ ${#files[@]} -eq 0 ]; then
     info "No hay snapshots para eliminar."
