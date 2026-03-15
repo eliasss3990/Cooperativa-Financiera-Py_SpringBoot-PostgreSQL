@@ -117,6 +117,16 @@ env-reset-database-only: ## Borra la base de datos, la inicializa limpia y reini
 env-reset-skip-rebuild: ## Resetea el entorno sin reconstruir la imagen del backend
 	@bash scripts/reset-dev.sh --no-build
 
+##@ Git / Repositorio
+
+.PHONY: git-sync
+git-sync: ## Descarga cambios y actualiza la rama actual sin perder trabajo
+	@bash scripts/git-sync.sh
+
+.PHONY: git-sync-clean
+git-sync-clean: ## Actualiza la rama actual y ofrece borrar ramas locales obsoletas
+	@bash scripts/git-sync.sh --clean
+
 ##@ Entorno de Pruebas (Staging)
 
 .PHONY: staging-start
