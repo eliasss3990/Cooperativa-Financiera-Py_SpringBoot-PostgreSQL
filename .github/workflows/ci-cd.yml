@@ -176,7 +176,7 @@ jobs:
 
       - name: Habilitar auto-merge
         env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
           gh pr merge "$PR_NUMBER" --auto --merge
